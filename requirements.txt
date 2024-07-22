@@ -2,3 +2,4 @@ Flask
 python-tsp
 googlemaps
 numpy
+python-dotenv
