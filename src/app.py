@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify # type: ignore
 from solver import solve
 
 app = Flask(__name__)

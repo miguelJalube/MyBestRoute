@@ -1,11 +1,11 @@
 from pprint import pprint
-import googlemaps
+import googlemaps # type: ignore
 import os
 import numpy as np
 from helpers import log
 from dotenv import load_dotenv
-from python_tsp.heuristics import solve_tsp_simulated_annealing
-from flask import jsonify
+from python_tsp.heuristics import solve_tsp_simulated_annealing # type: ignore
+from flask import jsonify # type: ignore
 
 # example data
 adresses = [
