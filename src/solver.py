@@ -1,81 +1,102 @@
+import time
 from pprint import pprint
-import googlemaps # type: ignore
+import googlemaps  # type: ignore
 import os
-import numpy as np
 from helpers import log
 from dotenv import load_dotenv
-from python_tsp.heuristics import solve_tsp_simulated_annealing # type: ignore
-from flask import jsonify # type: ignore
+from python_tsp.heuristics import solve_tsp_local_search  # type: ignore
+from flask import Flask, jsonify  # type: ignore
+import numpy as np
+import requests
+from geopy.geocoders import Photon
 
-# example data
-adresses = [
-    "Piazza Castello, 6600 Locarno",
-    "Mythen Center Schwyz, 6438 Ibach",
-    "Stabile gorelle, 6592 San Antonio",
-    "Baselstrasse 10, 4222 Zwingen",
-    "Comercialstrasse 32, 7000 Chur",
-    "Stauffacherstrasse 1, 6020 Emmenbrücke",
-    "im Oberland-Shopping, 3800 Interlaken",
-    "Rheinfelsstrasse 3b, 7000 Chur",
-    "Etzelpark, 8808 Pfäffikon",
-    "COOP-Center, 8132 Egg",
-    "Schlosserstrasse 4, 8180 Bülach",
-    "Moosmattstrasse 29, 8953 Dietikon",
-    "Schinhuetweg 10, 5036 Oberentfelden"
-]
+# Create a Flask app
+app = Flask(__name__)
+
+TSP_PROCESSING_TIME =       5
+OSM_DELAY =                 0.5
+
+def get_coordinates(adresses):
+    # Initialiser le géocodeur Nominatim
+    geolocator = Photon(user_agent="measurements")
+
+    result = []
+
+    for address in adresses:
+        
+        print(f"Getting coordinates for address: {address}")
+        
+        # Faire une requête pour obtenir les coordonnées
+        location = geolocator.geocode(address)
+        print(location)
+
+        if location:
+            # Extraire les coordonnées
+            latitude = location.latitude
+            longitude = location.longitude
+            result.append({"latitude":latitude, "longitude": longitude})
+        else:
+            return None
+        # wait 1 second
+        time.sleep(OSM_DELAY)
+        
+    return result
+
+def dist(orig, dest):
+    x1 = orig['latitude']
+    y1 = orig['longitude']
+    x2 = dest['latitude']
+    y2 = dest['longitude']
     
-def get_distance_matrix(api_key, addresses):
-    """
-    Obtain a complete distance matrix for a list of addresses using multiple requests.
+    dist = ((x2 - x1)**2 + (y2 - y1)**2)**0.5
+    return dist
 
-    :param api_key: The Google Maps API key.
-    :param addresses: A list of addresses to include in the distance matrix.
-    :return: A matrix containing distances and durations.
-    """
-    # Initialize Google Maps client
-    gmaps = googlemaps.Client(key=api_key)
+def get_distance_matrix_from_coordinates(coordinates):
+    # construct a numpy matrix with the distances between each pair of activities
+    n = len(coordinates)
+    dm = np.zeros((n, n))
+    for i in range(n):
+        for j in range(i, n):
+            dm[i, j] = dist((coordinates[i]), (coordinates[j]))
+            dm[j, i] = dm[i, j]
+    return dm
 
-    # Number of points to include in a single request
-    max_points = 10
+def solve_tsp(distance_matrix):
+    print(distance_matrix)
+    permutation, distance = solve_tsp_local_search(distance_matrix, max_processing_time=TSP_PROCESSING_TIME)
+    return permutation, distance
 
-    # Split addresses into chunks of max_points
-    address_chunks = [addresses[i:i + max_points] for i in range(0, len(addresses), max_points)]
-
-    # Initialize matrices
-    distances = []
-    durations = []
-
-    for i, chunk in enumerate(address_chunks):
-        for j, chunk2 in enumerate(address_chunks):
-            # Request the distance matrix for the current pair of chunks
-            result = gmaps.distance_matrix(origins=chunk, destinations=chunk2, units='metric')
-            
-            if i == 0 and j == 0:
-                # Initialize matrices with appropriate size
-                num_origins = len(addresses)
-                num_destinations = len(addresses)
-                distances = np.empty((num_origins, num_destinations), dtype=object)
-                durations = np.empty((num_origins, num_destinations), dtype=object)
-            
-            # Populate matrices
-            for x, origin in enumerate(chunk):
-                for y, destination in enumerate(chunk2):
-                    if result['rows'][x]['elements'][y]['status'] == 'OK':
-                        distances[addresses.index(origin)][addresses.index(destination)] = result['rows'][x]['elements'][y]['distance']['text']
-                        durations[addresses.index(origin)][addresses.index(destination)] = result['rows'][x]['elements'][y]['duration']['text']
-                    else:
-                        # log error message with the addresses that caused the error
-                        log(f"Status : {result['rows'][x]['elements'][y]['status']} for {origin} to {destination}", 'error')
-
-    return {
-        'distances': distances.tolist(),
-        'durations': durations.tolist()
-    }
-
-
-
-def solve():
-    gmaps_api_key = os.getenv('GOOGLE_MAPS_API_KEY')
+def generate_google_maps_link(waypoints):
+    base_url = "https://www.google.com/maps/dir/"
     
-    pprint(get_distance_matrix(gmaps_api_key, adresses))
-    return jsonify({"message": "Hello, World!"})
+    for waypoint in waypoints:
+        if waypoint != None:
+            if waypoint['latitude'] != 0 and waypoint['longitude'] != 0:
+                base_url += str(waypoint['latitude']) + "," + str(waypoint['longitude']) + "/"
+    
+    return base_url
+
+def solve(addresses):
+    coordinates = get_coordinates(addresses)
+    dm = get_distance_matrix_from_coordinates(coordinates)
+    optimal_order, _ = solve_tsp(dm)
+    return generate_google_maps_link([coordinates[i] for i in optimal_order])
+
+if __name__ == '__main__':
+    addresses = [
+        "Zurich",
+        "Vevey",
+        "Châtel-St-Denis",
+        "St. Gallen",
+        "Basel",
+        "Lausanne",
+        "Kriens",
+        "Winterthur",
+        "Martigny",
+        "Neuchâtel",
+        "Bern",
+        "Kloten",
+        "Muri"
+    ]
+    
+    print(solve(addresses))
