@@ -6,6 +6,11 @@ __pycache__/
 # dotenv
 .env
 
+# data files
+*.csv
+*.xlsx
+*.xls
+
 # C extensions
 *.so
 
