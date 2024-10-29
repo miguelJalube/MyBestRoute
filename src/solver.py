@@ -2,15 +2,17 @@ import time
 from pprint import pprint
 import googlemaps  # type: ignore
 import os
-from helpers import log
 from dotenv import load_dotenv
 from python_tsp.heuristics import solve_tsp_local_search  # type: ignore
 from flask import Flask, jsonify  # type: ignore
 import numpy as np
 import requests
 from geopy.geocoders import Photon, Nominatim  # type: ignore
+# logger
+import logging
+
+
 # Create a Flask app
-app = Flask(__name__)
 
 TSP_PROCESSING_TIME =       5
 OSM_DELAY =                 0.5
@@ -23,12 +25,10 @@ def get_coordinates(adresses):
     result = []
 
     for address in adresses:
-        
-        print(f"Getting coordinates for address: {address}")
+        logging.info(f"Getting coordinates for address: {address}")
         
         # Faire une requête pour obtenir les coordonnées
         location = geolocator.geocode(address)
-        print(location)
 
         if location:
             # Extraire les coordonnées
@@ -36,8 +36,7 @@ def get_coordinates(adresses):
             longitude = location.longitude
             result.append({"latitude":latitude, "longitude": longitude})
         else:
-            return None
-        # wait 1 second
+            logging.warning(f"Could not find coordinates for address: {address}")
         time.sleep(OSM_DELAY)
         
     return result
@@ -89,7 +88,7 @@ def get_dm_osm(coordinates):
     return dm
 
 def solve_tsp(distance_matrix):
-    print(distance_matrix)
+    logging.info("Solving TSP")
     permutation, distance = solve_tsp_local_search(distance_matrix, max_processing_time=TSP_PROCESSING_TIME)
     return permutation, distance
 
@@ -103,31 +102,23 @@ def generate_google_maps_link(waypoints):
     
     return base_url
 
-def solve(addresses):
+def solve(df):
+    # get a list of adresses, code postal, ville
+    
+    # remove rows with missing addresses
+    df = df.dropna(subset=["Adresse 1"])
+    
+    addresses = df["Adresse 1"].tolist()
+    postal_codes = df["Code postal"].tolist()
+    cities = df["Ville"].tolist()
+    
+    postal_codes = [str(int(float(code))) for code in postal_codes if not np.isnan(code) and code != ""]
+    
+    # concatenate the address, postal code and city
+    addresses = [f"{address}, {postal_code} {city}" for address, postal_code, city in zip(addresses, postal_codes, cities)]
+    
     coordinates = get_coordinates(addresses)
+    
     dm = get_dm_coordinates(coordinates)
     optimal_order, _ = solve_tsp(dm)
     return generate_google_maps_link([coordinates[i] for i in optimal_order])
-
-if __name__ == '__main__':
-    addresses = [
-        "Paris",
-        "Lyon",
-        "Marseille",
-        "Toulouse",
-        "Nice",
-        "Nantes",
-        "Strasbourg",
-        "Montpellier",
-        "Bordeaux",
-        "Lille",
-        "Rennes",
-        "Reims",
-        "Le Havre",
-        "Saint-Étienne",
-        "Toulon",
-        "Grenoble"
-    ]
-
-    
-    print(solve(addresses))

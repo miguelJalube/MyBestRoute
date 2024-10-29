@@ -3,3 +3,6 @@ python-tsp
 googlemaps
 numpy
 python-dotenv
+geopy
+pandas
+openpyxl

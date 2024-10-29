@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interface de résolution des trajets</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Interface de résolution des trajets</h2>
+        
+        <!-- Formulaire pour ajouter un fichier -->
+        <form action="/" method="POST" enctype="multipart/form-data" class="mb-4">
+            <div class="form-group">
+                <label for="file">Sélectionnez un fichier Excel :</label>
+                <input type="file" class="form-control" id="file" name="file" accept=".xlsx, .xls, .csv" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Ajouter</button>
+        </form>
+
+        <!-- Affichage des messages flash -->
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="alert alert-warning mt-3">
+              {{ messages[0] }}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <!-- Liste des fichiers -->
+        <h3>Fichiers disponibles :</h3>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Nom du Fichier</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for file in files %}
+                    <tr>
+                        <td>{{ file }}</td>
+                        <td>
+                            <a href="{{ url_for('resolve_file', filename=file) }}" class="btn btn-success btn-sm">Résoudre</a>
+                            <a href="{{ url_for('delete_file', filename=file) }}" class="btn btn-danger btn-sm" onclick="return confirm('Êtes-vous sûr de vouloir supprimer ce fichier ?');">Supprimer</a>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="2" class="text-center">Aucun fichier trouvé</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Prévisualisation du fichier résolu -->
+        <h3 class="mt-5">Liens Google maps</h3>
+        <div class="table-responsive">
+            <!-- pour chaque resultat afficher le lien sachant que position 0 c'est le nom et 1 c'est le lien-->
+            {% for result in results %}
+                <a href="{{ result["url"] }}" target="_blank">{{ result["filename"] }}</a><br>
+            {% else %}
+                <p>Aucun résultat trouvé</p>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>

@@ -14,8 +14,12 @@ RUN ls
 # Copier le reste de l'application dans le répertoire de travail
 COPY ./src .
 
+# Créer /src/results/results.csv
+RUN mkdir -p /results
+RUN touch /results/results.csv
+
 # Exposer le port sur lequel l'application s'exécute
-EXPOSE 5000
+EXPOSE 8072
 
 # Définir la commande pour exécuter l'application
 CMD ["python", "app.py"]
