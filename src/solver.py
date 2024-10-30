@@ -184,4 +184,6 @@ def solve(df, api_key, start="", mode="duration"):
     # Reorder destinations
     reordered_addresses = reorder_addresses(addresses, optimal_order)
     
+    logging.warning(generate_google_maps_link(addresses))
+    
     return generate_google_maps_link(reordered_addresses), errors

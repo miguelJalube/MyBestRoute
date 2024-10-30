@@ -17,6 +17,7 @@ COPY ./src .
 # Créer /src/results/results.csv
 RUN mkdir -p /results
 RUN touch /results/results.csv
+RUN touch settings.txt
 
 # Exposer le port sur lequel l'application s'exécute
 EXPOSE 8072
