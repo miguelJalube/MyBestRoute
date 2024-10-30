@@ -11,8 +11,8 @@ __pycache__/
 *.xlsx
 *.xls
 
+#settings.txt
 log.txt
-src/settings
 
 # C extensions
 *.so
