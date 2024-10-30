@@ -17,7 +17,6 @@ import json
 
 TSP_PROCESSING_TIME =       5
 OSM_DELAY =                 0.5
-API_KEY =                   "AIzaSyDYvNpdgpzlLviFkGEpwbnGTUBb0yzLXp0"
 MAX_GMAPS_DEST =            10
 
 # write json in log file
@@ -106,7 +105,7 @@ def get_dm_osm(coordinates):
     
     return dm
 
-def transform_to_tsp_format(gmaps_response):
+def transform_to_tsp_format(gmaps_response, mode="duration"):
     # Load JSON if it's not already a dictionary
     if isinstance(gmaps_response, str):
         gmaps_response = json.loads(gmaps_response)
@@ -153,7 +152,7 @@ def generate_google_maps_link(addresses):
     
     return base_url
 
-def solve(df, start=""):
+def solve(df, api_key, start="", mode="duration"):
     # get a list of adresses, code postal, ville
     
     # remove rows with missing addresses
@@ -174,10 +173,10 @@ def solve(df, start=""):
     errors = []
     
     # Get gmaps distance matrix
-    dm = get_dm_gm(addresses[:MAX_GMAPS_DEST], API_KEY)
+    dm = get_dm_gm(addresses[:MAX_GMAPS_DEST], api_key)
     
     # Change the format to fit tsp library
-    tsp_matrix = transform_to_tsp_format(dm)
+    tsp_matrix = transform_to_tsp_format(dm, mode)
     
     # Solve tsp
     optimal_order, _ = solve_tsp_local_search(tsp_matrix, max_processing_time=TSP_PROCESSING_TIME)

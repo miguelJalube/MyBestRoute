@@ -10,7 +10,7 @@ app.secret_key = "secret_key"
 UPLOAD_FOLDER = "uploads"
 RESULT_FOLDER = "results"
 RESULTS_FILE = "results.csv"
-SETTINGS_FILE = "settings"
+SETTINGS_FILE = "settings.txt"
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["RESULT_FOLDER"] = RESULT_FOLDER
 
@@ -71,6 +71,8 @@ def resolve_file(filename):
         with open(SETTINGS_FILE, "r") as f:
             settings = json.load(f)
             start = settings.get("start", "")
+            mode = settings.get("mode", "duration")
+            api_key = settings.get("api_key", "")
     except (FileNotFoundError, json.JSONDecodeError):
         start = ""
     
@@ -81,7 +83,7 @@ def resolve_file(filename):
         df = pd.read_excel(file_path)
         
         # Exemple de prévisualisation des 5 premières lignes
-        url, errors = solve(df, start)
+        url, errors = solve(df, api_key, start, mode)
         flash(f"{filename} résolu avec succès.")
         # stocker le résultat dans un fichier txt du même nom mais dans le répertoire 'results'
         result_path = os.path.join(app.config["RESULT_FOLDER"], RESULTS_FILE)
@@ -111,9 +113,11 @@ def settings():
     if request.method == "POST":
         api_key = request.form.get("api_key")
         start = request.form.get("start")
+        mode = request.form.get("mode")
         settings = {
             "api_key": api_key,
-            "start": start
+            "start": start,
+            "mode": mode
         }
         with open(SETTINGS_FILE, "w") as f:
             f.write(json.dumps(settings))
@@ -121,17 +125,20 @@ def settings():
         # Load json from file
         api_key = ""
         start = ""
+        mode = ""
         try:
             with open(SETTINGS_FILE, "r") as f:
                 settings = json.load(f)
                 api_key = settings.get("api_key", "")
                 start = settings.get("start", "")
+                mode = settings.get("mode", "")
         except (FileNotFoundError, json.JSONDecodeError):
             # Gérer le cas où le fichier n'existe pas ou est vide/invalid
             api_key = ""
             start = ""
+            mode = ""
 
-    return render_template("settings.html", api_key=api_key, start=start)
+    return render_template("settings.html", api_key=api_key, start=start, mode=mode)
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=8072)

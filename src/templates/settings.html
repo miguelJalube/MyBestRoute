@@ -20,6 +20,13 @@
                 <label for="start">Point de départ :</label>
                 <input type="text" class="form-control" id="start" name="start" value="{{ start }}" required>
             </div>
+            <div class="form-group">
+              <label for="start">Mode d'optimisation des trajets :</label>
+              <select class="form-control" id="mode" name="mode">
+                <option value="duration" {% if mode == 'duration' %}selected{% endif %}>Durée</option>
+                <option value="distance" {% if mode == 'distance' %}selected{% endif %}>Distance</option>
+              </select>
+          </div>
             <button type="submit" class="btn btn-primary">Sauvegarder</button>
         </form>
 
