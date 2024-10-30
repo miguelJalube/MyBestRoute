@@ -14,15 +14,15 @@ SETTINGS_FILE = "settings.txt"
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["RESULT_FOLDER"] = RESULT_FOLDER
 
-# Assurez-vous que le dossier 'uploads' existe
+# Ensure the 'uploads' folder exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def list_files(path):
-    """Liste tous les fichiers dans le dossier d'uploads."""
-    return [f for f in os.listdir(path) ]
+    """Lists all files in the uploads folder."""
+    return [f for f in os.listdir(path)]
 
 def get_results(path):
-    """Récupère les résultats stockés dans le fichier 'results.csv' s'il existe, si non le créé."""
+    """Retrieves results stored in the 'results.csv' file if it exists, otherwise creates it."""
     if not os.path.exists(path):
         with open(path, "w") as f:
             f.write("filename;url;")
@@ -38,12 +38,22 @@ def index():
         if "file" in request.files:
             file = request.files["file"]
             if file.filename == "" or not file.filename.endswith((".xlsx", ".xls")):
-                flash("Veuillez sélectionner un fichier Excel valide")
+                flash("Le fichier est invalide")
                 return redirect(request.url)
             
-            file_path = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
+            # Save the file to the uploads folder            
+            file_path = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)            
             file.save(file_path)
-            flash("Fichier uploadé avec succès")
+            
+            # Check if the file has more than 10 addresses
+            df = pd.read_excel(file_path)
+            if len(df) > 9:
+                logging.warning(f"Excel file lines {len(df)}")
+                flash("Le fichier peut contenir maximum 9 adresses à traiter en plus du point de départ")
+                os.remove(file_path)
+                return redirect(request.url)
+            
+            flash("File uploaded successfully")
             return redirect(url_for("index"))
         
     result_path = os.path.join(app.config["RESULT_FOLDER"], RESULTS_FILE)
@@ -53,19 +63,21 @@ def index():
 
 @app.route("/delete/<filename>")
 def delete_file(filename):
+    """Deletes a specific file from the uploads folder."""
     file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
     if os.path.exists(file_path):
         os.remove(file_path)
-        flash(f"{filename} supprimé avec succès.")
+        flash(f"{filename} deleted successfully.")
     else:
-        flash(f"{filename} n'existe pas.")
+        flash(f"{filename} does not exist.")
     return redirect(url_for("index"))
 
 @app.route("/resolve/<filename>")
 def resolve_file(filename):
+    """Processes a specific file using parameters from 'settings.txt'."""
     file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
     
-    # Get start from settings file
+    # Get parameters from settings file
     start = ""
     try:
         with open(SETTINGS_FILE, "r") as f:
@@ -77,35 +89,35 @@ def resolve_file(filename):
         start = ""
     
     if os.path.exists(file_path):
-        logging.info(f"Résolution du fichier {filename}")
+        logging.info(f"Resolving file {filename}")
         
-        # On peut imaginer un traitement du fichier ici (ex. lecture du fichier)
+        # Read and process the Excel file
         df = pd.read_excel(file_path)
         
-        # Exemple de prévisualisation des 5 premières lignes
+        # Call solve function with provided parameters
         url, errors = solve(df, api_key, start, mode)
-        flash(f"{filename} résolu avec succès.")
-        # stocker le résultat dans un fichier txt du même nom mais dans le répertoire 'results'
+        flash(f"{filename} resolved successfully.")
+        
+        # Store the result in 'results.csv'
         result_path = os.path.join(app.config["RESULT_FOLDER"], RESULTS_FILE)
         with open(result_path, "a") as f:
-            f.write("\n"+filename+";"+url+";")
+            f.write("\n" + filename + ";" + url + ";")
             
         results = get_results(result_path)
-        if len(errors) > 0 :
-            flash(f"Impossible de trouver les adresses suivantes : \n{errors}\n\n Merci d'essayer avec d'autres adresses")
+        if len(errors) > 0:
+            flash(f"Unable to find the following addresses: \n{errors}\n\nPlease try with other addresses")
         return render_template("index.html", results=results, files=list_files(app.config["UPLOAD_FOLDER"]))
     else:
-        flash(f"{filename} n'existe pas.")
+        flash(f"{filename} does not exist.")
     return redirect(url_for("index"))
-
 
 @app.route("/reset")
 def reset():
-    # remove results file
+    """Deletes the results file, effectively resetting stored results."""
     result_path = os.path.join(app.config["RESULT_FOLDER"], RESULTS_FILE)
     if os.path.exists(result_path):
         os.remove(result_path)
-    flash("Résultats réinitialisés avec succès.")
+    flash("Results reset successfully.")
     return redirect(url_for("index"))
 
 @app.route("/settings", methods=["GET", "POST"])
@@ -122,7 +134,7 @@ def settings():
         with open(SETTINGS_FILE, "w") as f:
             f.write(json.dumps(settings))
     else:
-        # Load json from file
+        # Load settings from file
         api_key = ""
         start = ""
         mode = ""
@@ -133,7 +145,7 @@ def settings():
                 start = settings.get("start", "")
                 mode = settings.get("mode", "")
         except (FileNotFoundError, json.JSONDecodeError):
-            # Gérer le cas où le fichier n'existe pas ou est vide/invalid
+            # Handle case where file does not exist or is empty/invalid
             api_key = ""
             start = ""
             mode = ""
