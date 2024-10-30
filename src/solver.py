@@ -4,6 +4,7 @@ import googlemaps # type: ignore
 import os
 from dotenv import load_dotenv
 from python_tsp.heuristics import solve_tsp_local_search, solve_tsp_simulated_annealing
+from python_tsp.exact import solve_tsp_dynamic_programming
 from flask import Flask, jsonify
 import numpy as np
 import requests
@@ -14,14 +15,51 @@ import json
 
 # Create a Flask app
 
-TSP_PROCESSING_TIME =       5
+TSP_PROCESSING_TIME =       20
 OSM_DELAY =                 0.5
 MAX_GMAPS_DEST =            10
 
 # write json in log file
-def write_json_log(log_file, data):
+def write_json_log(data,log_file="log.txt"):
     with open(log_file, 'a') as f:
         f.write(data)
+
+def get_coordinates(address, api_key):
+    # Initialiser le client Google Maps
+    gmaps = googlemaps.Client(key=api_key)
+
+    # Effectuer le geocoding de l'adresse
+    geocode_result = gmaps.geocode(address)
+
+    # Vérifier si des résultats ont été trouvés
+    if geocode_result:
+        # Récupérer la première coordonnée (latitude, longitude)
+        location = geocode_result[0]['geometry']['location']
+        return {"lat":location['lat'],"lng": location['lng']}
+    else:
+        print("Aucun résultat trouvé pour l'adresse donnée.")
+        return None
+    
+# Get geometric distance between two points
+def dist(orig, dest):
+    x1 = orig['lat']
+    y1 = orig['lng']
+    x2 = dest['lat']
+    y2 = dest['lng']
+    
+    dist = ((x2 - x1)**2 + (y2 - y1)**2)**0.5
+    return dist
+
+def get_dm_coordinates(coordinates):
+    # construct a numpy matrix with the distances between each pair of activities
+    n = len(coordinates)
+    dm = np.zeros((n, n))
+    for i in range(n):
+        for j in range(i, n):
+            if coordinates[i] != None and coordinates[j] != None:
+                dm[i, j] = dist((coordinates[i]), (coordinates[j]))
+                dm[j, i] = dm[i, j]
+    return dm
 
 def get_dm_gm(addresses, api_key):
     gmaps = googlemaps.Client(key=api_key)
@@ -42,28 +80,26 @@ def get_dm_gm(addresses, api_key):
 
     return matrix, errors
 
-def transform_to_tsp_format(gmaps_response, mode="duration"):
-    # Load JSON if it's not already a dictionary
-    if isinstance(gmaps_response, str):
-        gmaps_response = json.loads(gmaps_response)
-    
-    # Get destination and origin addresses
-    destinations = gmaps_response['destination_addresses']
-    origins = gmaps_response['origin_addresses']
-    n = len(destinations)
-    
-    # Initialize a distance matrix with infinity
-    distance_matrix = np.full((n, n), float('inf'))
-    
-    # Fill the distance matrix
-    for i, row in enumerate(gmaps_response['rows']):
-        for j, element in enumerate(row['elements']):
-            if element['status'] == 'OK':
-                distance_matrix[i][j] = element['duration']['value']  # Use duration for TSP
-            else:
-                distance_matrix[i][j] = float('inf')  # Indicate no route available
-
-    return distance_matrix
+def transform_to_tsp_format(distance_matrix, mode="duration"):
+    # Si `distance_matrix` est déjà une matrice NumPy, on la retourne directement.
+    if isinstance(distance_matrix, np.ndarray):
+        return distance_matrix
+    else:
+        # Si la matrice est encore dans un format brut (par exemple, sous forme de réponse JSON), on traite comme avant.
+        destinations = distance_matrix['destination_addresses']
+        origins = distance_matrix['origin_addresses']
+        n = len(destinations)
+        
+        # Initialiser une matrice de distances avec infini par défaut
+        full_distance_matrix = np.full((n, n), float('inf'))
+        
+        # Remplir la matrice de distances
+        for i, row in enumerate(distance_matrix['rows']):
+            for j, element in enumerate(row['elements']):
+                if element['status'] == 'OK':
+                    full_distance_matrix[i][j] = element['duration']['value']
+        
+        return full_distance_matrix
 
 def reorder_addresses(addresses, order):
     """
@@ -107,15 +143,24 @@ def solve(df, api_key, start="", mode="duration"):
     if start != "":
         addresses.insert(0, start)
     
+    errors = []
+    
     # Get gmaps distance matrix
-    dm, errors = get_dm_gm(addresses[:MAX_GMAPS_DEST], api_key)
+    #dm, errors = get_dm_gm(addresses, api_key)
+    
+    coordinates = []
+    for address in addresses:
+        coordinates.append(get_coordinates(address, api_key))
+    write_json_log(json.dumps(coordinates))
+    dm = get_dm_coordinates(coordinates)
     
     # Change the format to fit tsp library
     tsp_matrix = transform_to_tsp_format(dm, mode)
     
     # Solve tsp
-    #optimal_order, _ = solve_tsp_local_search(tsp_matrix, max_processing_time=TSP_PROCESSING_TIME)
-    optimal_order, _ = solve_tsp_simulated_annealing(tsp_matrix, max_processing_time=TSP_PROCESSING_TIME)
+    optimal_order, _ = solve_tsp_local_search(tsp_matrix, max_processing_time=TSP_PROCESSING_TIME)
+    #optimal_order, _ = solve_tsp_simulated_annealing(tsp_matrix, max_processing_time=TSP_PROCESSING_TIME)
+    #optimal_order, _ = solve_tsp_dynamic_programming(tsp_matrix)
     
     # Reorder destinations
     reordered_addresses = reorder_addresses(addresses, optimal_order)

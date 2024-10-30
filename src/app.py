@@ -47,9 +47,9 @@ def index():
             
             # Check if the file has more than 10 addresses
             df = pd.read_excel(file_path)
-            if len(df) > 9:
+            if len(df) > 25:
                 logging.warning(f"Excel file lines {len(df)}")
-                flash("Le fichier peut contenir maximum 9 adresses à traiter en plus du point de départ")
+                flash("Le fichier peut contenir maximum 25 adresses à traiter en plus du point de départ")
                 os.remove(file_path)
                 return redirect(request.url)
             
