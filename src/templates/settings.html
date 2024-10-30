@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paramètres</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Paramètres</h2>
+        <a href="./">Accueil</a>
+        <!-- Formulaire de paramètres -->
+        <form action="{{ url_for('settings') }}" method="POST" class="mb-4">
+            <div class="form-group">
+                <label for="api_key">Clé API :</label>
+                <input type="text" class="form-control" id="api_key" name="api_key" value="{{ api_key }}" required>
+            </div>
+            <div class="form-group">
+                <label for="start">Point de départ :</label>
+                <input type="text" class="form-control" id="start" name="start" value="{{ start }}" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Sauvegarder</button>
+        </form>
+
+        <!-- Affichage des messages flash -->
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="alert alert-warning mt-3">
+              {{ messages[0] }}
+            </div>
+          {% endif %}
+        {% endwith %}
+    </div>
+</body>
+</html>

@@ -3,12 +3,14 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 import pandas as pd
 import os
 import logging
+import json
 
 app = Flask(__name__)
 app.secret_key = "secret_key"
 UPLOAD_FOLDER = "uploads"
 RESULT_FOLDER = "results"
 RESULTS_FILE = "results.csv"
+SETTINGS_FILE = "settings"
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["RESULT_FOLDER"] = RESULT_FOLDER
 
@@ -46,7 +48,8 @@ def index():
         
     result_path = os.path.join(app.config["RESULT_FOLDER"], RESULTS_FILE)
     files = list_files(app.config["UPLOAD_FOLDER"])
-    return render_template("index.html", results=get_results(result_path), files=files)
+    results = get_results(result_path)
+    return render_template("index.html", results=results, files=files)
 
 @app.route("/delete/<filename>")
 def delete_file(filename):
@@ -61,6 +64,16 @@ def delete_file(filename):
 @app.route("/resolve/<filename>")
 def resolve_file(filename):
     file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+    
+    # Get start from settings file
+    start = ""
+    try:
+        with open(SETTINGS_FILE, "r") as f:
+            settings = json.load(f)
+            start = settings.get("start", "")
+    except (FileNotFoundError, json.JSONDecodeError):
+        start = ""
+    
     if os.path.exists(file_path):
         logging.info(f"Résolution du fichier {filename}")
         
@@ -68,14 +81,17 @@ def resolve_file(filename):
         df = pd.read_excel(file_path)
         
         # Exemple de prévisualisation des 5 premières lignes
-        url = solve(df)
+        url, errors = solve(df, start)
         flash(f"{filename} résolu avec succès.")
         # stocker le résultat dans un fichier txt du même nom mais dans le répertoire 'results'
         result_path = os.path.join(app.config["RESULT_FOLDER"], RESULTS_FILE)
         with open(result_path, "a") as f:
             f.write("\n"+filename+";"+url+";")
-        
-        return render_template("index.html", results=get_results(result_path), files=list_files(app.config["UPLOAD_FOLDER"]))
+            
+        results = get_results(result_path)
+        if len(errors) > 0 :
+            flash(f"Impossible de trouver les adresses suivantes : \n{errors}\n\n Merci d'essayer avec d'autres adresses")
+        return render_template("index.html", results=results, files=list_files(app.config["UPLOAD_FOLDER"]))
     else:
         flash(f"{filename} n'existe pas.")
     return redirect(url_for("index"))
@@ -89,6 +105,33 @@ def reset():
         os.remove(result_path)
     flash("Résultats réinitialisés avec succès.")
     return redirect(url_for("index"))
+
+@app.route("/settings", methods=["GET", "POST"])
+def settings():
+    if request.method == "POST":
+        api_key = request.form.get("api_key")
+        start = request.form.get("start")
+        settings = {
+            "api_key": api_key,
+            "start": start
+        }
+        with open(SETTINGS_FILE, "w") as f:
+            f.write(json.dumps(settings))
+    else:
+        # Load json from file
+        api_key = ""
+        start = ""
+        try:
+            with open(SETTINGS_FILE, "r") as f:
+                settings = json.load(f)
+                api_key = settings.get("api_key", "")
+                start = settings.get("start", "")
+        except (FileNotFoundError, json.JSONDecodeError):
+            # Gérer le cas où le fichier n'existe pas ou est vide/invalid
+            api_key = ""
+            start = ""
+
+    return render_template("settings.html", api_key=api_key, start=start)
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=8072)

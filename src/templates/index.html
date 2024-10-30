@@ -10,6 +10,9 @@
     <div class="container mt-5">
         <h2>Interface de résolution des trajets</h2>
         
+        <a href="/settings">Paramètres</a>
+        <a href="/reset">Reinitialiser</a>
+        
         <!-- Formulaire pour ajouter un fichier -->
         <form action="/" method="POST" enctype="multipart/form-data" class="mb-4">
             <div class="form-group">
@@ -57,7 +60,6 @@
         <!-- Prévisualisation du fichier résolu -->
         <h3 class="mt-5">Liens Google maps</h3>
         <div class="table-responsive">
-            <!-- pour chaque resultat afficher le lien sachant que position 0 c'est le nom et 1 c'est le lien-->
             {% for result in results %}
                 <a href="{{ result["url"] }}" target="_blank">{{ result["filename"] }}</a><br>
             {% else %}
