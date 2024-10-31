@@ -126,7 +126,6 @@ def generate_google_maps_link(addresses):
     return base_url
 
 def solve(df, api_key, start="", mode="duration"):
-    # get a list of adresses, code postal, ville
     
     # remove rows with missing addresses
     df = df.dropna(subset=["Adresse 1"])
@@ -145,14 +144,19 @@ def solve(df, api_key, start="", mode="duration"):
     
     errors = []
     
-    # Get gmaps distance matrix
-    #dm, errors = get_dm_gm(addresses, api_key)
-    
-    coordinates = []
-    for address in addresses:
-        coordinates.append(get_coordinates(address, api_key))
-    write_json_log(json.dumps(coordinates))
-    dm = get_dm_coordinates(coordinates)
+    # If adresses exceed MAX_GMAPS_DEST, use coordinates
+    if len(addresses) > MAX_GMAPS_DEST:
+        
+        # Get distances using coordinates
+        coordinates = []
+        for address in addresses:
+            coordinates.append(get_coordinates(address, api_key))
+        write_json_log(json.dumps(coordinates))
+        dm = get_dm_coordinates(coordinates)
+    else:
+        
+        # Get gmaps distance matrix
+        dm, errors = get_dm_gm(addresses, api_key)
     
     # Change the format to fit tsp library
     tsp_matrix = transform_to_tsp_format(dm, mode)
